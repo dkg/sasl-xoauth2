@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import httplib2 # type: ignore
 import json
 import optparse
 import sys
 import urllib.parse
+import urllib.request
 from typing import Dict, Union
 
 REDIRECT_URI = "https://login.microsoftonline.com/common/oauth2/nativeclient"
@@ -31,13 +31,15 @@ OPTIONS, CMDLINE_ARGS = PARSER.parse_args()
 
 def get_authorization_code() -> str:
   url = "https://login.microsoftonline.com/%s/oauth2/v2.0/authorize" % OPTIONS.tenant
-  url += "?client_id=%s" % OPTIONS.client_id
-  url += "&response_type=code"
-  url += "&redirect_uri=%s" % urllib.parse.quote(REDIRECT_URI)
-  url += "&response_mode=query"
-  url += "&scope=%s" % urllib.parse.quote(SCOPE)
+  params = {}
+  params['client_id'] = OPTIONS.client_id
+  params['response_type'] = 'code'
+  params['redirect_uri'] = REDIRECT_URI
+  params['response_mode'] = 'query'
+  params['scope'] = SCOPE
 
-  print("Please visit the following link in a web browser, then paste the resulting URL:\n\n%s\n" % url)
+  print("Please visit the following link in a web browser, then paste the resulting URL:\n\n%s?%s\n" %
+        (url, urllib.parse.urlencode(params)))
 
   resulting_url_input:str = input("Resulting URL: ")
   if REDIRECT_URI not in resulting_url_input:
@@ -50,23 +52,22 @@ def get_authorization_code() -> str:
 
 def get_initial_tokens(code:str) -> Dict[str,Union[str,int]]:
   url = "https://login.microsoftonline.com/%s/oauth2/v2.0/token" % OPTIONS.tenant
-  token_request = "client_id=%s" % OPTIONS.client_id
-  token_request += "&scope=%s" % urllib.parse.quote(SCOPE)
-  token_request += "&code=%s" % code
-  token_request += "&redirect_uri=%s" % urllib.parse.quote(REDIRECT_URI)
-  token_request += "&grant_type=authorization_code"
+  token_request = {}
+  token_request['client_id'] = OPTIONS.client_id
+  token_request['scope'] = SCOPE
+  token_request['code'] = code
+  token_request['redirect_uri'] = REDIRECT_URI
+  token_request['grant_type'] = 'authorization_code'
 
-  http = httplib2.Http()
-  resp, content = http.request(
-      uri=url,
-      method="POST",
-      headers={ "Content-Type": "application/x-www-form-urlencoded" },
-      body=token_request)
-  content = content.decode("utf-8")
+  resp = urllib.request.urlopen(
+    urllib.request.Request(
+      url,
+      data=urllib.parse.urlencode(token_request).encode('ascii'),
+      headers={ "Content-Type": "application/x-www-form-urlencoded" }))
   if resp.status != 200:
-    raise Exception("Request failed: %s" % content)
+    raise Exception("Request failed: %s" % resp.status)
   try:
-    content = json.loads(content)
+    content = json.load(resp)
     return {
         'access_token': content["access_token"],
         'refresh_token': content["refresh_token"],
