@@ -8,6 +8,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from typing import Any, Union, Optional
 
 OAUTH2_AUTH_URL = 'https://accounts.google.com/o/oauth2/auth'
 OAUTH2_TOKEN_URL = 'https://accounts.google.com/o/oauth2/token'
@@ -20,20 +21,20 @@ PARSER.add_option('--scope', dest='scope', default='')
 
 OPTIONS, CMDLINE_ARGS = PARSER.parse_args()
 
-def UrlSafeEscape(str):
-  return urllib.parse.quote(str, safe='~-._')
+def UrlSafeEscape(instring:str) -> str:
+  return urllib.parse.quote(instring, safe='~-._')
 
-def RedirectUri(local_port):
+def RedirectUri(local_port:int) -> str:
   return 'http://127.0.0.1:%d%s' % (local_port, OAUTH2_RESULT_PATH)
 
-def GetAuthUrl(local_port):
+def GetAuthUrl(local_port:int) -> str:
   client_id = UrlSafeEscape(OPTIONS.client_id)
   scope = UrlSafeEscape(OPTIONS.scope)
   redirect_uri = UrlSafeEscape(RedirectUri(local_port))
 
   return '%s?client_id=%s&scope=%s&response_type=%s&redirect_uri=%s' % (OAUTH2_AUTH_URL, client_id, scope, 'code', redirect_uri)
 
-def GetTokenFromCode(authorization_code, local_port):
+def GetTokenFromCode(authorization_code:str, local_port:int) -> Any:
   params = {}
   params['client_id'] = OPTIONS.client_id
   params['client_secret'] = OPTIONS.client_secret
@@ -46,11 +47,11 @@ def GetTokenFromCode(authorization_code, local_port):
   return json.loads(response)
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
-  def log_request(code, size):
+  def log_request(self, code:Union[int, str]='-', size:Union[int,str]='-') -> None:
     # Silence request logging.
     return
 
-  def do_GET(self):
+  def do_GET(self) -> None:
     code = self.ExtractCodeFromResponse()
 
     response_code = 400
@@ -73,7 +74,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
       print('Wrote token to %s.' % CMDLINE_ARGS[0])
       sys.exit(0)
 
-  def ExtractCodeFromResponse(self):
+  def ExtractCodeFromResponse(self) -> Optional[str]:
     parse = urllib.parse.urlparse(self.path)
     if parse.path != OAUTH2_RESULT_PATH:
       return None
@@ -84,7 +85,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
       return None
     return qs['code'][0]
 
-def main():
+def main() -> None:
   if len(CMDLINE_ARGS) != 1:
     PARSER.print_usage()
     sys.exit(1)

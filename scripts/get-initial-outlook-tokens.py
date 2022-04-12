@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import httplib2
+import httplib2 # type: ignore
 import json
 import optparse
 import sys
 import urllib.parse
+from typing import Dict, Union
 
 REDIRECT_URI = "https://login.microsoftonline.com/common/oauth2/nativeclient"
 SCOPE = "openid offline_access https://outlook.office.com/SMTP.Send"
@@ -28,7 +29,7 @@ PARSER.add_option('--client_id', dest='client_id', default='')
 
 OPTIONS, CMDLINE_ARGS = PARSER.parse_args()
 
-def get_authorization_code():
+def get_authorization_code() -> str:
   url = "https://login.microsoftonline.com/%s/oauth2/v2.0/authorize" % OPTIONS.tenant
   url += "?client_id=%s" % OPTIONS.client_id
   url += "&response_type=code"
@@ -38,16 +39,16 @@ def get_authorization_code():
 
   print("Please visit the following link in a web browser, then paste the resulting URL:\n\n%s\n" % url)
 
-  resulting_url = input("Resulting URL: ")
-  if REDIRECT_URI not in resulting_url:
+  resulting_url_input:str = input("Resulting URL: ")
+  if REDIRECT_URI not in resulting_url_input:
     raise Exception("Resulting URL does not contain expected prefix: %s" % REDIRECT_URI)
-  resulting_url = urllib.parse.urlparse(resulting_url)
+  resulting_url:urllib.parse.ParseResult = urllib.parse.urlparse(resulting_url_input)
   code = urllib.parse.parse_qs(resulting_url.query)
   if "code" not in code:
     raise Exception("Missing code in result: %s" % resulting_url.query)
   return code["code"][0]
 
-def get_initial_tokens(code):
+def get_initial_tokens(code:str) -> Dict[str,Union[str,int]]:
   url = "https://login.microsoftonline.com/%s/oauth2/v2.0/token" % OPTIONS.tenant
   token_request = "client_id=%s" % OPTIONS.client_id
   token_request += "&scope=%s" % urllib.parse.quote(SCOPE)
@@ -73,7 +74,7 @@ def get_initial_tokens(code):
   except:
     raise Exception("Tokens not found in response: %s" % content)
 
-def main():
+def main() -> None:
   if len(CMDLINE_ARGS) != 1:
     PARSER.print_usage()
     sys.exit(1)
